@@ -10,11 +10,13 @@
 [Design decisions and tradeoffs](#4-design-decisions-and-tradeoffs) ·
 [The Taggies themselves](#5-the-taggies-themselves) ·
 [Status and next steps](#6-status-and-next-steps) ·
-[Stack](#7-stack)
+[Where the time actually went](#7-where-the-time-actually-went) ·
+[Stack](#8-stack)
 
 ## 1. What is Taggiemap
 
-![Taggiemap landing page](images/landing.jpg)
+<img src="images/landing.jpg" alt="Taggiemap landing page" width="280">
+
 
 Taggiemap connects a physical object to a digital community. You get a small
 3D-printed cat ("Taggie") with an NFC chip embedded in it — as a gift, or as an
@@ -88,7 +90,7 @@ install.
 
 This is the part of the system I'd most want a technical reader to look at closely.
 
-![The public events calendar — most of these were never typed in by hand](images/events-list.jpg)
+<img src="images/events-list.jpg" alt="The public events calendar — most of these were never typed in by hand" width="280">
 
 Electronic-music collectives announce almost everything as an Instagram flyer
 image with a caption, not as structured data anywhere. Taggiemap needs real
@@ -260,7 +262,7 @@ defending rather than something that enforces itself.
 
 ## 5. The Taggies themselves
 
-![What is Taggiemap — the explainer page, with a Taggie in the wild](images/about.jpg)
+<img src="images/about.jpg" alt="What is Taggiemap — the explainer page, with a Taggie in the wild" width="280">
 
 A Taggie is a small, self-designed 3D-printed object — currently a cat shape —
 with an NFC chip (NTAG213) embedded directly into the print partway through
@@ -296,7 +298,46 @@ I'm most excited to build next, because it's the point where the "physical
 object as a key" idea stops being a nice metaphor and starts being the actual
 payment/access mechanism. No timeline here on purpose — it isn't built yet.
 
-## 7. Stack
+## 7. Where the time actually went
+
+This is a 445-commit, solo codebase built nights and weekends since May 2026
+alongside a full-time job, so it's worth being honest about where that time
+actually concentrated — it wasn't evenly spread across "features."
+
+**By far the most iterated-on part of the system is the flyer-to-event
+pipeline from §3 and the organizer/admin tooling around it.** A rough read of
+the commit history backs this up: file paths touching the import pipeline,
+the organizer area, and the admin panel show up together in roughly a third
+of all commits — more than the map, the 3D viewer, and the Taggie
+claim/profile flow combined, even though those are the parts a visitor
+actually sees first. That tracks with how the project actually went: the
+NFC-to-profile flow and the map were mostly "build it once, polish it a bit,"
+while the pipeline that turns a flyer into a trustworthy calendar entry has
+been reworked in distinct passes — duplicate detection got progressively
+stricter, a second independent AI read was added specifically to catch cases
+where the first read might be wrong before a human ever sees it, a
+content-safety gate was added, and a background watchdog now flags events
+whose details get silently contradicted by a later post. None of that shows
+up as a visible feature; it only shows up as fewer wrong candidates reaching
+the person reviewing them.
+
+**One specific edge case ate more iteration than I expected going in:** when
+is a second post about the "same" event versus a genuinely different one? A
+festival running Friday night into Saturday morning and then Saturday night
+into Sunday morning is two events, not one multi-day event. Two different
+parties at the same venue on the same calendar night are two events too —
+same venue is never enough on its own. Getting that matching rule tight
+enough to stop producing duplicate or wrongly-merged cards, without making it
+so strict that genuine corrections stopped matching their original candidate,
+took several rounds of tightening after watching it get fooled by real posts.
+
+**Comparatively little iteration:** the 3D model viewer and the map rendering
+layer. Both are visually central to the product, but once the rendering and
+interaction were working, neither has needed much revisiting — the complexity
+in this project turned out to live in "is this data actually correct and
+non-duplicate," not in the rendering layer.
+
+## 8. Stack
 
 Next.js 15 (App Router) + TypeScript, PostgreSQL via Prisma, MapLibre GL with
 self-hosted PMTiles vector tiles, Three.js / React Three Fiber for the 3D
@@ -316,3 +357,7 @@ Docker on a single Hetzner server.
 - I couldn't get a usable screenshot of the 3D world map itself: the globe
   needs WebGL, which didn't render in the headless browser I used to capture
   these. Worth revisiting with a real browser before this goes fully public.
+- §7's "roughly a third of commits" claim is a rough signal from grepping
+  changed file paths per commit, not a precise audit — the categories overlap
+  (an import-pipeline file and an organizer file often change in the same
+  commit) and I rounded down rather than overstate it.
