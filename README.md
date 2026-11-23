@@ -4,6 +4,14 @@
 > [taggiemap.de](https://taggiemap.de): how the system is built, the problems it runs
 > into, and the decisions behind it.
 
+**Contents:** [What is Taggiemap](#1-what-is-taggiemap) ·
+[Architecture](#2-architecture) ·
+[Turning flyers into calendar data](#3-turning-flyers-into-calendar-data) ·
+[Design decisions and tradeoffs](#4-design-decisions-and-tradeoffs) ·
+[The Taggies themselves](#5-the-taggies-themselves) ·
+[Status and next steps](#6-status-and-next-steps) ·
+[Stack](#7-stack)
+
 ## 1. What is Taggiemap
 
 ![Taggiemap landing page](images/landing.jpg)
