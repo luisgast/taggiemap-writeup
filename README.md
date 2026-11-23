@@ -4,14 +4,17 @@
 > [taggiemap.de](https://taggiemap.de): how the system is built, the problems it runs
 > into, and the decisions behind it.
 
-**Contents:** [What is Taggiemap](#1-what-is-taggiemap) ·
-[Architecture](#2-architecture) ·
-[Turning flyers into calendar data](#3-turning-flyers-into-calendar-data) ·
-[Design decisions and tradeoffs](#4-design-decisions-and-tradeoffs) ·
-[The Taggies themselves](#5-the-taggies-themselves) ·
-[Status and next steps](#6-status-and-next-steps) ·
-[Where the time actually went](#7-where-the-time-actually-went) ·
-[Stack](#8-stack)
+## Contents
+
+1. [What is Taggiemap](#1-what-is-taggiemap)
+2. [What else is in the platform](#2-what-else-is-in-the-platform)
+3. [Architecture](#3-architecture)
+4. [Turning flyers into calendar data](#4-turning-flyers-into-calendar-data)
+5. [Design decisions and tradeoffs](#5-design-decisions-and-tradeoffs)
+6. [The Taggies themselves](#6-the-taggies-themselves)
+7. [Status and next steps](#7-status-and-next-steps)
+8. [Where the time actually went](#8-where-the-time-actually-went)
+9. [Stack](#9-stack)
 
 ## 1. What is Taggiemap
 
@@ -35,13 +38,47 @@ A growing share of new events arrive through an automated pipeline that reads
 public event announcements with an LLM rather than being typed in by hand
 (more on that below).
 
-This write-up focuses on three things I think are worth showing: how I turn messy,
-unstructured event announcements into structured calendar data with an LLM; the
-tradeoffs behind running my own infrastructure instead of defaulting to managed
-services; and the physical/digital bridge (NFC → web app) that the whole product
-sits on.
+This write-up goes deep on three things: how I turn messy, unstructured event
+announcements into structured calendar data with an LLM (§4); the tradeoffs
+behind running my own infrastructure instead of defaulting to managed services
+(§5); and the physical/digital bridge, NFC → web app (§3, §6). §2 is a quick
+map of everything else that's actually built, so this doesn't read as if
+that's all there is.
 
-## 2. Architecture
+## 2. What else is in the platform
+
+The NFC-to-profile loop and the calendar (§1) are the core, but they're a
+deliberately narrow cut of a much bigger app. Briefly, what else is live:
+
+- **Community / social:** a handle and profile for every account, friend
+  requests by link or QR code, a passive "crossed paths" count computed from
+  shared event history (no action needed, it just accumulates), pokes, and
+  star ratings with comments on events and artists after the fact.
+- **Artist platform** (built, rolling out gradually behind feature flags):
+  its own account type with a profile builder (links, short facts, press
+  kit, residencies), a public directory, an availability calendar, and
+  direct booking requests from organizers.
+- **Organizer area:** self-service event and lineup management, member roles
+  and invite links, a moderation panel, a statistics view, and the review
+  queue for events the import pipeline (§4) suggests.
+- **Notifications:** a subscribable bell on any artist, venue, event or
+  organizer, push and email delivery, quiet hours and a daily-digest option,
+  everything collected into one inbox.
+- **Content moderation:** reports on messages, profiles, ratings and events
+  route to the organizer or admin responsible, with hide/block actions at
+  both levels — enforced regardless of which feature flags are on.
+- **Admin tooling:** bulk-editable lists with saved filters across every
+  entity, visitor and funnel stats, and a weekly automated Instagram
+  carousel ("Wochenpost") that drafts itself from the coming weekend's
+  events for one approval click.
+- **Discovery:** genres, a searchable public events list, venue pages that
+  cluster nearby Taggies, and an in-app help overlay aware of which page and
+  role is looking at it.
+
+None of this is covered in depth here — it's listed to be honest about scope,
+not glossed over.
+
+## 3. Architecture
 
 ```mermaid
 flowchart LR
@@ -79,14 +116,14 @@ straight from the browser as HTTP range requests, so the server never sits in
 that hot path), and two private ones for user photos, kept apart by
 environment (production vs. development/staging) so test uploads can never
 end up mixed into real user data. The map itself is a self-hosted tile set,
-not a paid map provider — see §4 for why. Event data comes in two ways:
+not a paid map provider — see §5 for why. Event data comes in two ways:
 organizers can enter it by hand, or it is extracted from public event
-announcements using an LLM (§3). The NFC flow is simple by design: tapping a
+announcements using an LLM (§4). The NFC flow is simple by design: tapping a
 Taggie opens a URL with an embedded ID, which the backend resolves to either a
 claim flow (new Taggie) or the owner's profile (claimed one) — no app to
 install.
 
-## 3. Turning flyers into calendar data
+## 4. Turning flyers into calendar data
 
 This is the part of the system I'd most want a technical reader to look at closely.
 
@@ -203,7 +240,7 @@ than to guess what's not an announcement, and a human is the filter, not the
 model. Total cost across 3,621 API calls in that period: **$12.73** — cheap
 enough that cost was never the constraint, correctness was.
 
-## 4. Design decisions and tradeoffs
+## 5. Design decisions and tradeoffs
 
 **One server instead of managed cloud services.** The whole app — web backend,
 database, and the worker that runs background jobs — lives on a single
@@ -260,7 +297,7 @@ URL. *Price:* "what counts as public" has to be kept consistent by hand across
 every new page type as the product grows, which is an invariant I have to keep
 defending rather than something that enforces itself.
 
-## 5. The Taggies themselves
+## 6. The Taggies themselves
 
 <img src="images/about.jpg" alt="What is Taggiemap — the explainer page, with a Taggie in the wild" width="280">
 
@@ -278,7 +315,7 @@ Material and print time add up to well under €1 per unit.
 Further designs (an owl, among others) are in progress, generated with the
 help of an AI 3D-modeling tool and then prepared for print by hand.
 
-## 6. Status and next steps
+## 7. Status and next steps
 
 **Live today:** the world map, Taggie profiles and claiming, the event
 calendar (manually created and automatically extracted events), event chat and
@@ -298,14 +335,14 @@ I'm most excited to build next, because it's the point where the "physical
 object as a key" idea stops being a nice metaphor and starts being the actual
 payment/access mechanism. No timeline here on purpose — it isn't built yet.
 
-## 7. Where the time actually went
+## 8. Where the time actually went
 
 This is a 445-commit, solo codebase built nights and weekends since May 2026
 alongside a full-time job, so it's worth being honest about where that time
 actually concentrated — it wasn't evenly spread across "features."
 
 **By far the most iterated-on part of the system is the flyer-to-event
-pipeline from §3 and the organizer/admin tooling around it.** A rough read of
+pipeline from §4 and the organizer/admin tooling around it.** A rough read of
 the commit history backs this up: file paths touching the import pipeline,
 the organizer area, and the admin panel show up together in roughly a third
 of all commits — more than the map, the 3D viewer, and the Taggie
@@ -337,7 +374,7 @@ interaction were working, neither has needed much revisiting — the complexity
 in this project turned out to live in "is this data actually correct and
 non-duplicate," not in the rendering layer.
 
-## 8. Stack
+## 9. Stack
 
 Next.js 15 (App Router) + TypeScript, PostgreSQL via Prisma, MapLibre GL with
 self-hosted PMTiles vector tiles, Three.js / React Three Fiber for the 3D
@@ -348,7 +385,7 @@ Docker on a single Hetzner server.
 
 ## Notes on this draft
 
-- Numbers in §1 and §3 are pulled directly from the application database (the
+- Numbers in §1 and §4 are pulled directly from the application database (the
   data I could query runs through 2026-11-13); they are not the live
   production figures at the moment someone reads this, but close enough to be
   representative — re-pull before publishing if it's been a while.
@@ -357,7 +394,7 @@ Docker on a single Hetzner server.
 - I couldn't get a usable screenshot of the 3D world map itself: the globe
   needs WebGL, which didn't render in the headless browser I used to capture
   these. Worth revisiting with a real browser before this goes fully public.
-- §7's "roughly a third of commits" claim is a rough signal from grepping
+- §8's "roughly a third of commits" claim is a rough signal from grepping
   changed file paths per commit, not a precise audit — the categories overlap
   (an import-pipeline file and an organizer file often change in the same
   commit) and I rounded down rather than overstate it.
