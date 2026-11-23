@@ -22,11 +22,14 @@
 
 
 Taggiemap connects a physical object to a digital community. You get a small
-3D-printed cat ("Taggie") with an NFC chip embedded in it — as a gift, or as an
-event ticket. You scan it with your phone, and it becomes your key to a profile,
-a world map of everyone else's Taggies, and the local electronic-music event
-calendar. No Taggie, no NFC scan: you can browse the calendar and the map, but
-you're not "in."
+3D-printed cat ("Taggie") with an NFC chip embedded in it, as a gift. You scan
+it with your phone, and it becomes your key to a profile, a world map of
+everyone else's Taggies, and full participation in the local
+electronic-music event calendar. You don't need one to use the calendar at
+all — an email-only account already gets you browsing, planning, and
+notifications. What the Taggie adds is the social layer: showing up on the
+map, in event chat, in connections — the part that's tied to having actually
+been somewhere in person.
 
 It's a solo project. I've been building it since May 2026, alongside a full-time
 job, and it is live and in daily use: it runs the event calendar for the Munich
@@ -202,27 +205,14 @@ once an announcement is in front of the model.
    or scams, each with the quoted passage that triggered it. This never
    auto-rejects anything — it surfaces a chip for the human reviewer. Nothing
    from this pipeline is ever published without that human confirmation step.
-
-**Two concrete cases the post-processing exists for:**
-
-- A flyer lists an act only as an Instagram handle (say, `@dj.somename`, no
-  printed name). Early readings would sometimes "clean up" that handle into something
-  that looked like a plausible human name — technically readable, but not
-  something anyone actually printed on the flyer. The fix wasn't a better
-  prompt; it was a code-level check that treats anything shaped like a handle
-  (leading `@`, or a bare word containing digits/dots/underscores that matches
-  an `@mention` in the caption) as a handle, full stop, and clears the name
-  field instead of trusting a guess.
-- A flyer prints one door time ("23:00") once, above a stacked list of ten act
-  names with no individual times. Read naively, that one printed time gets
-  attached to every single act, as if ten acts all started at the exact same
-  minute. A small heuristic (several acts sharing one identical time, without
-  each having its own separate stage) reassigns that time to the event itself
-  and strips it back off the acts.
-
-Neither of these is a model problem you fix by asking nicer in the prompt —
-they're systematic enough that deterministic code catches them reliably, every
-time, and a unit test can pin the behavior down for good.
+7. **A second, independent read for the cases worth double-checking — plus
+   ongoing monitoring after the fact.** For event data going through the
+   stricter verification path, a second model call re-reads the same
+   material blind to the first result; a disagreement holds the card for a
+   person instead of being silently resolved. Separately, a background
+   watchdog keeps checking already-published events against anything new
+   that comes in about them, and flags one whose details get contradicted
+   later — something that was correct when approved can still go stale.
 
 **What this buys, concretely:** the model only ever has to do pattern
 recognition on a flyer (what's a date, what's a name, what's a handle); every
@@ -380,21 +370,3 @@ Next.js 15 (App Router) + TypeScript, PostgreSQL via Prisma, MapLibre GL with
 self-hosted PMTiles vector tiles, Three.js / React Three Fiber for the 3D
 model viewer, NextAuth, the Anthropic API for structured event extraction,
 Docker on a single Hetzner server.
-
----
-
-## Notes on this draft
-
-- Numbers in §1 and §4 are pulled directly from the application database (the
-  data I could query runs through 2026-11-13); they are not the live
-  production figures at the moment someone reads this, but close enough to be
-  representative — re-pull before publishing if it's been a while.
-- Images are real screenshots of the public, logged-out site (landing, events
-  calendar, about page) — no account or Taggie-owner content is shown.
-- I couldn't get a usable screenshot of the 3D world map itself: the globe
-  needs WebGL, which didn't render in the headless browser I used to capture
-  these. Worth revisiting with a real browser before this goes fully public.
-- §8's "roughly a third of commits" claim is a rough signal from grepping
-  changed file paths per commit, not a precise audit — the categories overlap
-  (an import-pipeline file and an organizer file often change in the same
-  commit) and I rounded down rather than overstate it.
