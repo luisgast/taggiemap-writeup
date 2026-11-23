@@ -1,9 +1,8 @@
 # Taggiemap — Engineering Write-up
 
-> This repository contains no source code. It exists to document the engineering behind
-> [taggiemap.de](https://taggiemap.de) for people evaluating my work — mainly hiring
-> managers and CTOs at ML/robotics startups who want to see how I think about systems,
-> not just what I shipped.
+> This repository contains no source code. It's a write-up of the engineering behind
+> [taggiemap.de](https://taggiemap.de): how the system is built, the problems it runs
+> into, and the decisions behind it.
 
 ## 1. What is Taggiemap
 
