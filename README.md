@@ -1,4 +1,4 @@
-# Taggiemap — Engineering Write-up
+# Taggiemap: Engineering Write-up
 
 > This repository contains no source code. It's a write-up of the engineering behind
 > [taggiemap.de](https://taggiemap.de): how the system is built, the problems it runs
@@ -20,20 +20,19 @@
 
 <img src="images/landing.jpg" alt="Taggiemap landing page" width="280">
 
-
 Taggiemap connects a physical object to a digital community. You get a small
 3D-printed cat ("Taggie") with an NFC chip embedded in it, as a gift. You scan
 it with your phone, and it becomes your key to a profile, a world map of
 everyone else's Taggies, and full participation in the local
 electronic-music event calendar. You don't need one to use the calendar at
-all — an email-only account already gets you browsing, planning, and
+all: an email-only account already gets you browsing, planning, and
 notifications. What the Taggie adds is the social layer: showing up on the
-map, in event chat, in connections — the part that's tied to having actually
-been somewhere in person.
+map, in event chat, in connections. That's the part that's tied to having
+actually been somewhere in person.
 
 It's a solo project. I've been building it since May 2026, alongside a full-time
 job, and it is live and in daily use: it runs the event calendar for the Munich
-electronic-music scene — 80 events listed for October 2026, 181 events on the
+electronic-music scene, with 80 events listed for October 2026, 181 events on the
 platform overall, 143 organizers (collectives, clubs, venues) with their own
 page, 61 registered accounts and 518 physical Taggies made so far (198 of them
 claimed).
@@ -69,7 +68,7 @@ deliberately narrow cut of a much bigger app. Briefly, what else is live:
   everything collected into one inbox.
 - **Content moderation:** reports on messages, profiles, ratings and events
   route to the organizer or admin responsible, with hide/block actions at
-  both levels — enforced regardless of which feature flags are on.
+  both levels, enforced regardless of which feature flags are on.
 - **Admin tooling:** bulk-editable lists with saved filters across every
   entity, visitor and funnel stats, and a weekly automated Instagram
   carousel ("Wochenpost") that drafts itself from the coming weekend's
@@ -78,7 +77,7 @@ deliberately narrow cut of a much bigger app. Briefly, what else is live:
   cluster nearby Taggies, and an in-app help overlay aware of which page and
   role is looking at it.
 
-None of this is covered in depth here — it's listed to be honest about scope,
+None of this is covered in depth here; it's listed to be honest about scope,
 not glossed over.
 
 ## 3. Architecture
@@ -114,31 +113,31 @@ flowchart LR
 
 The whole product runs on a single Hetzner server: a Node.js/TypeScript backend
 (Next.js, server-rendered), PostgreSQL for all application data, and three
-object-storage buckets — one public-read for the map's vector tiles (fetched
+object-storage buckets: one public-read for the map's vector tiles (fetched
 straight from the browser as HTTP range requests, so the server never sits in
 that hot path), and two private ones for user photos, kept apart by
 environment (production vs. development/staging) so test uploads can never
 end up mixed into real user data. The map itself is a self-hosted tile set,
-not a paid map provider — see §5 for why. Event data comes in two ways:
+not a paid map provider (see §5 for why). Event data comes in two ways:
 organizers can enter it by hand, or it is extracted from public event
 announcements using an LLM (§4). The NFC flow is simple by design: tapping a
 Taggie opens a URL with an embedded ID, which the backend resolves to either a
-claim flow (new Taggie) or the owner's profile (claimed one) — no app to
+claim flow (new Taggie) or the owner's profile (claimed one). No app to
 install.
 
 ## 4. Turning flyers into calendar data
 
 This is the part of the system I'd most want a technical reader to look at closely.
 
-<img src="images/events-list.jpg" alt="The public events calendar — most of these were never typed in by hand" width="280">
+<img src="images/events-list.jpg" alt="Taggiemap's public events calendar" width="280">
 
 Electronic-music collectives announce almost everything as an Instagram flyer
 image with a caption, not as structured data anywhere. Taggiemap needs real
 dates, venues, and lineups. So there's a pipeline that reads a flyer image and
-its caption and turns it into a typed, validated event — and nothing from that
+its caption and turns it into a typed, validated event, and nothing from that
 pipeline ever goes live without a human (the organizer or an admin) confirming
 it first. Event data itself is sourced from public event announcements; this
-write-up deliberately doesn't describe how the data is retrieved — that's not
+write-up deliberately doesn't describe how the data is retrieved: that's not
 the interesting (or safe-to-publish) part. What's interesting is what happens
 once an announcement is in front of the model.
 
@@ -154,7 +153,7 @@ once an announcement is in front of the model.
    `HH:mm` in 24h format, lineup entries are capped in count and string length.
    Anything that doesn't fit the schema is either dropped field-by-field
    (a malformed time costs that one field, never the whole event) or the event
-   is discarded entirely if it has no date at all — there's no silent repair
+   is discarded entirely if it has no date at all. There's no silent repair
    that could insert guessed data.
 3. **Deterministic post-processing in code, not the model.** A second layer of
    plain functions re-checks what the model read, because a few mistakes are
@@ -179,40 +178,40 @@ once an announcement is in front of the model.
      the event's own start and strips it back off the acts.
    - **Set time vs. event time.** The model is asked separately whether the
      *event's* start/end time was actually printed as such, as opposed to only
-     a set time for one act being visible — a first act listed at 23:00 does
+     a set time for one act being visible: a first act listed at 23:00 does
      not mean the event starts at 23:00.
 4. **Timezones and multi-day events.** Flyers print dates without a year
    constantly ("Sat, Oct 3"). The resolution rule is explicit: pick the next
    occurrence of that date on or after the post's own publish date (falling
    back to "today" when the publish date isn't known), never the current year
-   blindly — otherwise a flyer posted in December for a January date would
+   blindly: otherwise a flyer posted in December for a January date would
    silently land a year early. For multi-day events (a festival Friday to
    Sunday), the model is additionally asked which *calendar day* each act's
    clock time falls on, because a set at 01:00 printed under the "Saturday"
-   heading is actually early Sunday morning — treating it as Saturday would
+   heading is actually early Sunday morning: treating it as Saturday would
    put it before the acts that came earlier that same printed day.
-5. **Duplicates.** A second flyer for an event already seen isn't a new event —
+5. **Duplicates.** A second flyer for an event already seen isn't a new event:
    it's a correction or an addition (fill in a missing field, extend a lineup,
    or override a start time if the two disagree, always keeping the newer
    post's value and recording what changed). The matching is deliberately
    conservative: same organizer, same calendar day, and either an explicit
    match the model is confident about or a similar name within a day. Same
-   venue alone is never enough — two different parties at the same club on the
+   venue alone is never enough: two different parties at the same club on the
    same night are two events, not one.
 6. **Safety classification happens in the same call.** The schema also asks
    the model to flag passages suggesting extremism, hate, illegal activity,
    violence, sexual content, closed/invite-only events, political campaigning,
    or scams, each with the quoted passage that triggered it. This never
-   auto-rejects anything — it surfaces a chip for the human reviewer. Nothing
+   auto-rejects anything: it surfaces a chip for the human reviewer. Nothing
    from this pipeline is ever published without that human confirmation step.
-7. **A second, independent read for the cases worth double-checking — plus
+7. **A second, independent read for the cases worth double-checking, plus
    ongoing monitoring after the fact.** For event data going through the
    stricter verification path, a second model call re-reads the same
    material blind to the first result; a disagreement holds the card for a
    person instead of being silently resolved. Separately, a background
    watchdog keeps checking already-published events against anything new
    that comes in about them, and flags one whose details get contradicted
-   later — something that was correct when approved can still go stale.
+   later: something that was correct when approved can still go stale.
 
 **What this buys, concretely:** the model only ever has to do pattern
 recognition on a flyer (what's a date, what's a name, what's a handle); every
@@ -224,16 +223,16 @@ time.
 **The numbers, as of mid-November 2026** (the pipeline went live
 2026-09-30): 3,568 posts evaluated, producing 1,091 candidate cards for human
 review. Of the 380 decided so far, 93 were approved into real events and 287
-were rejected — rejection being the expected common case by design: the
+were rejected. Rejection is the expected common case by design: the
 model is deliberately tuned to be inclusive (when in doubt, surface it) rather
 than to guess what's not an announcement, and a human is the filter, not the
-model. Total cost across 3,621 API calls in that period: **$12.73** — cheap
+model. Total cost across 3,621 API calls in that period: **$12.73**, cheap
 enough that cost was never the constraint, correctness was.
 
 ## 5. Design decisions and tradeoffs
 
-**One server instead of managed cloud services.** The whole app — web backend,
-database, and the worker that runs background jobs — lives on a single
+**One server instead of managed cloud services.** The whole app (web backend,
+database, and the worker that runs background jobs) lives on a single
 self-managed server, not a stack of managed services (hosted Postgres, a
 serverless platform, a managed queue). *Why:* this is a pre-revenue, solo,
 bootstrapped project; a single predictable monthly hosting cost is worth far
@@ -244,11 +243,11 @@ horizontal scaling without real rework, and I carry the operational load
 
 **Passwordless login by emailed code.** Accounts authenticate with a one-time
 code sent by email, not a password. *Why:* most visitors show up once, tap a
-Taggie, and may never come back for months — asking them to invent and
+Taggie, and may never come back for months. Asking them to invent and
 remember a password for that is friction with no payoff, and it removes an
 entire class of password-reuse/breach-replay risk from a project with no
 security team behind it. Codes are never stored as a plain or ordinary
-(fast) hash — a 6-digit code only has a million possible values, so it's
+(fast) hash: a 6-digit code only has a million possible values, so it's
 HMACed with a server-side secret before it's persisted, the same way you'd
 treat any other short, guessable secret. *Price:* login always requires access
 to the email inbox in the moment; there's no "I just remember my password"
@@ -258,7 +257,7 @@ credentials (even though those bring their own risk).
 **No tracking cookies.** Visit and click-path analytics run on a daily-rotating
 anonymous hash derived server-side, not a persistent cookie or client-side
 identifier. *Why:* the analytics only need to answer aggregate questions
-("how many people viewed this event," "does the filter get used") — nothing
+("how many people viewed this event," "does the filter get used"): nothing
 here needs to re-identify the same visitor across days, and the project would
 rather not carry the compliance and trust cost of a tracking cookie for data
 it doesn't need. *Price:* no real per-visitor funnel analysis across sessions
@@ -277,8 +276,8 @@ something that would otherwise be a single `<script>` tag.
 
 **SEO via schema.org structured data, deliberately asymmetric.** Public pages
 (events, venues, artists, organizer pages) carry full structured data, a
-sitemap, and normal indexing; anything that shouldn't be searchable — Taggie
-profiles, the NFC claim URLs, hidden or invite-only content — is explicitly
+sitemap, and normal indexing; anything that shouldn't be searchable (Taggie
+profiles, the NFC claim URLs, hidden or invite-only content) is explicitly
 marked non-indexable at the page level, not just "hopefully not linked."
 *Why:* the calendar is the product's growth channel and needs to show up in
 search; a Taggie owner's profile and the raw claim link are personal and
@@ -289,9 +288,9 @@ defending rather than something that enforces itself.
 
 ## 6. The Taggies themselves
 
-<img src="images/about.jpg" alt="What is Taggiemap — the explainer page, with a Taggie in the wild" width="280">
+<img src="images/about.jpg" alt="The Taggiemap explainer page, with a Taggie in the wild" width="280">
 
-A Taggie is a small, self-designed 3D-printed object — currently a cat shape —
+A Taggie is a small, self-designed 3D-printed object, currently a cat shape,
 with an NFC chip (NTAG213) embedded directly into the print partway through
 the job, not glued on afterward. Scanning it with a phone's NFC reader (no app
 needed) opens a URL carrying that chip's unique ID; the backend looks up
@@ -317,30 +316,30 @@ organizer area for collectives to manage their own events and lineups.
 organizers so the extraction pipeline becomes a backstop rather than the main
 path, and multi-day/multi-floor event handling refinements.
 
-**Planned, not built:** ticketing, where the Taggie itself becomes the ticket —
+**Planned, not built:** ticketing, where the Taggie itself becomes the ticket:
 a *physical, reusable* NFC credential rather than a disposable QR code. The
 intent is a visible reuse incentive: someone who already owns a Taggie pays
 less for their next event than someone buying one fresh. This is the piece
 I'm most excited to build next, because it's the point where the "physical
 object as a key" idea stops being a nice metaphor and starts being the actual
-payment/access mechanism. No timeline here on purpose — it isn't built yet.
+payment/access mechanism. No timeline here on purpose, since it isn't built yet.
 
 ## 8. Where the time actually went
 
 This is a 445-commit, solo codebase built nights and weekends since May 2026
 alongside a full-time job, so it's worth being honest about where that time
-actually concentrated — it wasn't evenly spread across "features."
+actually concentrated. It wasn't evenly spread across "features."
 
 **By far the most iterated-on part of the system is the flyer-to-event
 pipeline from §4 and the organizer/admin tooling around it.** A rough read of
 the commit history backs this up: file paths touching the import pipeline,
 the organizer area, and the admin panel show up together in roughly a third
-of all commits — more than the map, the 3D viewer, and the Taggie
+of all commits, more than the map, the 3D viewer, and the Taggie
 claim/profile flow combined, even though those are the parts a visitor
 actually sees first. That tracks with how the project actually went: the
 NFC-to-profile flow and the map were mostly "build it once, polish it a bit,"
 while the pipeline that turns a flyer into a trustworthy calendar entry has
-been reworked in distinct passes — duplicate detection got progressively
+been reworked in distinct passes: duplicate detection got progressively
 stricter, a second independent AI read was added specifically to catch cases
 where the first read might be wrong before a human ever sees it, a
 content-safety gate was added, and a background watchdog now flags events
@@ -352,7 +351,7 @@ the person reviewing them.
 is a second post about the "same" event versus a genuinely different one? A
 festival running Friday night into Saturday morning and then Saturday night
 into Sunday morning is two events, not one multi-day event. Two different
-parties at the same venue on the same calendar night are two events too —
+parties at the same venue on the same calendar night are two events too:
 same venue is never enough on its own. Getting that matching rule tight
 enough to stop producing duplicate or wrongly-merged cards, without making it
 so strict that genuine corrections stopped matching their original candidate,
@@ -360,7 +359,7 @@ took several rounds of tightening after watching it get fooled by real posts.
 
 **Comparatively little iteration:** the 3D model viewer and the map rendering
 layer. Both are visually central to the product, but once the rendering and
-interaction were working, neither has needed much revisiting — the complexity
+interaction were working, neither has needed much revisiting. The complexity
 in this project turned out to live in "is this data actually correct and
 non-duplicate," not in the rendering layer.
 
